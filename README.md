@@ -1,0 +1,1 @@
+# KQL-threat-hunting-queries
