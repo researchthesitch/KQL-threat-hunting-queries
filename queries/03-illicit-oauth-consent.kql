@@ -1,0 +1,42 @@
+// =============================================================================
+// Title:        Illicit OAuth application consent grant
+// Technique:    Adversary registers a malicious or look-alike multi-tenant
+//               OAuth app, phishes a user (or admin) into consenting to
+//               broad Graph permissions, and uses the resulting refresh
+//               token for persistent mailbox or file access — bypassing
+//               password and MFA controls entirely.
+// MITRE ATT&CK: T1528 - Steal Application Access Token
+// Data source:  AuditLogs (Microsoft Sentinel / Log Analytics)
+// Description:  Surfaces "Consent to application" events with the
+//               consenting user, the app being granted access, and the
+//               permissions requested. Pay particular attention to apps
+//               requesting Mail.Read, Files.Read.All, offline_access, or
+//               *.ReadWrite.All scopes from non-admin users.
+// False pos.:   Legitimate first-time app onboarding (Slack, Zoom, Adobe,
+//               etc.). Maintain an allowlist of known-good app IDs.
+// References:   https://learn.microsoft.com/defender-cloud-apps/investigate-risky-oauth
+//               https://attack.mitre.org/techniques/T1528/
+// =============================================================================
+
+AuditLogs
+| where TimeGenerated > ago(7d)
+| where OperationName has "Consent to application"
+| extend AppDisplayName    = tostring(TargetResources[0].displayName)
+| extend AppId             = tostring(TargetResources[0].id)
+| extend ConsentingUser    = tostring(InitiatedBy.user.userPrincipalName)
+| extend ConsentingUserIP  = tostring(InitiatedBy.user.ipAddress)
+| extend ModifiedProps     = parse_json(tostring(TargetResources[0].modifiedProperties))
+| mv-expand prop = ModifiedProps
+| extend PropertyName = tostring(prop.displayName),
+         NewValue     = tostring(prop.newValue)
+| where PropertyName in ("ConsentAction.Permissions", "ConsentContext.IsAdminConsent")
+| project
+        TimeGenerated,
+        ConsentingUser,
+        ConsentingUserIP,
+        AppDisplayName,
+        AppId,
+        PropertyName,
+        NewValue,
+        Result
+| order by TimeGenerated desc
