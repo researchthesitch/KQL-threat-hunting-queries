@@ -31,15 +31,11 @@ Result: 2 distinct users targeted, 7 failed authentication attempts from one sou
 
 ## Requirements
 
-- A Microsoft Entra ID tenant with sign-in and audit logs flowing to a Log Analytics workspace, or
-- A Microsoft Defender XDR tenant with Advanced Hunting enabled.
-
 You can build a free lab in minutes:
-
-1. Sign up for the [Microsoft 365 Developer Program](https://developer.microsoft.com/microsoft-365/dev-program) — free E5 tenant with 25 user licenses.
-2. In Entra ID, configure **Diagnostic settings** to send `SignInLogs` and `AuditLogs` to a new Log Analytics workspace (or enable a Sentinel free trial on top of it).
-3. Paste any query from `/queries` into Sentinel **Logs** and run.
-
+1. Sign up for the [free Azure tier](https://azure.microsoft.com/free/).
+2. In Microsoft Entra ID, configure **Diagnostic settings** to send `SignInLogs` and `AuditLogs` to a Log Analytics workspace.
+3. Create a few test users in your `*.onmicrosoft.com` domain and seed sign-in activity.
+4. Paste any query from `/queries` into the workspace's Logs blade and run.
 ## How to use
 
 - Start with default lookback windows; tune `ago(...)` and thresholds to your environment.
