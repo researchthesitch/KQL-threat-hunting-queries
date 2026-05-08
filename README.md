@@ -19,6 +19,16 @@ Identity is the new perimeter. The vast majority of cloud breaches in recent yea
 | 05 | Successful legacy authentication | T1078.004 | `SigninLogs` |
 | 06 | MFA method tampering by another user | T1556.006 | `AuditLogs` |
 
+
+## Validated detections
+
+The password spray detection has been exercised end-to-end in an Entra ID lab tenant — test users, seeded failed sign-ins from a single IP, and the query returning the expected attack signature.
+
+![Password spray detection firing on lab telemetry](screenshots/01-password-spray-result.png)
+
+Result: 2 distinct users targeted, 7 failed authentication attempts from one source IP within the same hour window — matches T1110.003 (Brute Force: Password Spraying). Source IP and tenant domain are redacted.
+
+
 ## Requirements
 
 - A Microsoft Entra ID tenant with sign-in and audit logs flowing to a Log Analytics workspace, or
