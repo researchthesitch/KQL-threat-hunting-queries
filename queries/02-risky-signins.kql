@@ -1,0 +1,37 @@
+// =============================================================================
+// Title:        Risky sign-ins flagged by Entra ID Identity Protection
+// Technique:    Adversary signs in with stolen credentials or tokens; Entra
+//               ID Protection flags the sign-in as risky based on signals
+//               like unfamiliar location, anomalous token, leaked credential
+//               match, or impossible travel.
+// MITRE ATT&CK: T1078.004 - Valid Accounts: Cloud Accounts
+// Data source:  SigninLogs (Microsoft Sentinel / Log Analytics)
+// Description:  Surfaces medium- and high-risk sign-ins along with the
+//               specific risk event types and whether Conditional Access
+//               actually challenged or blocked the session. Sign-ins that
+//               were risky AND succeeded without a CA control are the
+//               highest priority.
+// False pos.:   Travelling employees, VPN exit changes, MFA fatigue test
+//               campaigns. Cross-reference against HR travel records and
+//               recent CA policy changes before escalating.
+// References:   https://learn.microsoft.com/entra/id-protection/concept-identity-protection-risks
+//               https://attack.mitre.org/techniques/T1078/004/
+// =============================================================================
+
+SigninLogs
+| where TimeGenerated > ago(7d)
+| where RiskLevelDuringSignIn in ("medium", "high")
+| extend RiskEvents = tostring(RiskEventTypes_V2)
+| project
+        TimeGenerated,
+        UserPrincipalName,
+        IPAddress,
+        Location,
+        AppDisplayName,
+        ClientAppUsed,
+        RiskLevelDuringSignIn,
+        RiskEvents,
+        ConditionalAccessStatus,
+        ResultType,
+        ResultDescription
+| order by TimeGenerated desc
