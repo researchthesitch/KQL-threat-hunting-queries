@@ -1,0 +1,46 @@
+// =============================================================================
+// Title:        Successful legacy authentication
+// Technique:    Adversary uses legacy protocols (IMAP, POP, SMTP AUTH,
+//               Exchange ActiveSync, "Other clients") to authenticate with
+//               a username/password. Most legacy protocols cannot enforce
+//               modern MFA, so any successful sign-in over them is a
+//               control gap and a likely target for credential stuffing.
+// MITRE ATT&CK: T1078.004 - Valid Accounts: Cloud Accounts
+// Data source:  SigninLogs (Microsoft Sentinel / Log Analytics)
+// Description:  Surfaces successful sign-ins that used a legacy client app,
+//               grouped by user and protocol, with the apps and source IPs
+//               touched. Use this to drive a "block legacy auth" campaign:
+//               every result is either an account to migrate or a CA
+//               policy gap to close.
+// False pos.:   Mostly true positives by definition — every result is a
+//               control gap. Some printers, scanners, and old line-of-
+//               business apps still require IMAP/SMTP; document and exempt
+//               those service accounts via CA filtering.
+// References:   https://learn.microsoft.com/entra/identity/conditional-access/block-legacy-authentication
+//               https://attack.mitre.org/techniques/T1078/004/
+// =============================================================================
+
+SigninLogs
+| where TimeGenerated > ago(7d)
+| where ClientAppUsed in (
+    "Other clients",
+    "IMAP",
+    "POP",
+    "SMTP",
+    "Authenticated SMTP",
+    "MAPI Over HTTP",
+    "Offline Address Book",
+    "Exchange ActiveSync",
+    "Exchange Online PowerShell",
+    "Exchange Web Services",
+    "AutoDiscover"
+)
+| where ResultType == 0
+| summarize
+        SuccessfulSignIns = count(),
+        Apps              = make_set(AppDisplayName, 10),
+        SourceIPs         = make_set(IPAddress, 20),
+        FirstSeen         = min(TimeGenerated),
+        LastSeen          = max(TimeGenerated)
+    by UserPrincipalName, ClientAppUsed
+| order by SuccessfulSignIns desc
