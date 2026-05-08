@@ -1,0 +1,47 @@
+// =============================================================================
+// Title:        MFA authentication method tampering by another user
+// Technique:    Adversary who has compromised an admin account (or social-
+//               engineered the help desk) registers their own phone or
+//               authenticator app on a victim's account, or removes the
+//               victim's existing methods, in order to bypass MFA on
+//               subsequent sign-ins.
+// MITRE ATT&CK: T1556.006 - Modify Authentication Process: Multi-Factor
+//                          Authentication
+// Data source:  AuditLogs (Microsoft Sentinel / Log Analytics)
+// Description:  Surfaces authentication-method changes performed by a user
+//               OTHER than the account owner. Self-service MFA enrollment
+//               and reset is filtered out so the noise floor stays low.
+// False pos.:   Help desk staff legitimately resetting MFA for users who
+//               lost their device. Maintain an allowlist of help desk
+//               accounts and review anything outside it.
+// References:   https://learn.microsoft.com/entra/identity/authentication/howto-mfa-userstates
+//               https://attack.mitre.org/techniques/T1556/006/
+// =============================================================================
+
+AuditLogs
+| where TimeGenerated > ago(7d)
+| where Category == "UserManagement"
+| where OperationName has_any (
+    "User registered security info",
+    "User deleted security info",
+    "User registered all required security info",
+    "Admin registered security info",
+    "Admin updated security info",
+    "Admin deleted security info",
+    "Reset user password",
+    "Disable Strong Authentication"
+)
+| extend Initiator = tostring(InitiatedBy.user.userPrincipalName)
+| extend Target    = tostring(TargetResources[0].userPrincipalName)
+| extend ActionIP  = tostring(InitiatedBy.user.ipAddress)
+| where isnotempty(Initiator) and isnotempty(Target)
+| where tolower(Initiator) != tolower(Target)
+| project
+        TimeGenerated,
+        Initiator,
+        ActionIP,
+        Target,
+        OperationName,
+        Result,
+        ResultReason
+| order by TimeGenerated desc
