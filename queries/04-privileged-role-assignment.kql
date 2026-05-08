@@ -1,0 +1,56 @@
+// =============================================================================
+// Title:        Privileged directory role assignment
+// Technique:    Adversary who has compromised an account with role-management
+//               permissions (or social-engineered an admin) escalates by
+//               assigning Global Administrator, Privileged Role Admin, or
+//               other tier-0 directory roles to a controlled identity.
+// MITRE ATT&CK: T1098.003 - Account Manipulation: Additional Cloud Roles
+//               T1078.004 - Valid Accounts: Cloud Accounts (downstream use)
+// Data source:  AuditLogs (Microsoft Sentinel / Log Analytics)
+// Description:  Captures both permanent role assignments and PIM-eligible
+//               assignments to high-privilege roles. Cross-reference the
+//               initiator against your approved tier-0 admin list; any
+//               assignment performed by an account NOT on that list is a
+//               high-priority lead.
+// False pos.:   Legitimate onboarding of new admins; PIM activation flows.
+//               Track via change-management ticket references.
+// References:   https://learn.microsoft.com/entra/identity/role-based-access-control/permissions-reference
+//               https://attack.mitre.org/techniques/T1098/003/
+// =============================================================================
+
+let HighPrivRoles = dynamic([
+    "Global Administrator",
+    "Privileged Role Administrator",
+    "Privileged Authentication Administrator",
+    "Application Administrator",
+    "Cloud Application Administrator",
+    "Conditional Access Administrator",
+    "Security Administrator",
+    "Exchange Administrator",
+    "SharePoint Administrator",
+    "User Administrator",
+    "Hybrid Identity Administrator"
+]);
+AuditLogs
+| where TimeGenerated > ago(30d)
+| where OperationName in (
+    "Add member to role",
+    "Add eligible member to role",
+    "Add member to role completed (PIM activation)"
+)
+| extend RoleName    = tostring(TargetResources[0].displayName)
+| extend TargetUser  = tostring(parse_json(tostring(TargetResources[0].modifiedProperties))[1].newValue)
+| extend Initiator   = coalesce(
+        tostring(InitiatedBy.user.userPrincipalName),
+        tostring(InitiatedBy.app.displayName))
+| extend InitiatorIP = tostring(InitiatedBy.user.ipAddress)
+| where RoleName in (HighPrivRoles)
+| project
+        TimeGenerated,
+        Initiator,
+        InitiatorIP,
+        TargetUser,
+        RoleName,
+        OperationName,
+        Result
+| order by TimeGenerated desc
